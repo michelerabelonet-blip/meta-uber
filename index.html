@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meta Uber mudou de endereço</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0f172a;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px;margin:0}
+.box{max-width:380px}
+a,button{display:block;width:100%;padding:14px;border-radius:12px;font-size:16px;font-weight:700;margin-top:12px;text-decoration:none;border:0;cursor:pointer}
+a{background:#16a34a;color:#fff}
+button{background:#1e293b;color:#fff}
+p{color:#cbd5e1}
+</style>
+</head><body><div class="box">
+<h1>🚗 O Meta Uber mudou de endereço</h1>
+<p>Agora os dados ficam salvos na nuvem, protegidos por PIN.</p>
+<div id="backup" style="display:none">
+  <p><b>Você tem <span id="qtd"></span> dia(s) lançado(s) aqui.</b> Baixe o backup e, no novo app, vá em <b>Ajustes → Restaurar backup</b>.</p>
+  <button id="baixar">Baixar backup</button>
+</div>
+<a href="https://meta-uber-app.onrender.com">Abrir o novo Meta Uber</a>
+</div>
+<script>
+let s=null;try{s=JSON.parse(localStorage.getItem('metaUber.v1'))}catch(e){}
+if(s&&Array.isArray(s.dias)&&s.dias.length){
+  document.getElementById('qtd').textContent=s.dias.length;
+  document.getElementById('backup').style.display='block';
+  document.getElementById('baixar').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(s)],{type:'application/json'}));a.download='meta-uber-backup.json';a.click()};
+}else{setTimeout(()=>location.href='https://meta-uber-app.onrender.com',2500)}
+if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister())).catch(()=>{});
+</script>
+</body></html>
