@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Meta Uber</title>
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--acc:#16a34a;--acc2:#0ea5e9;--warn:#dc2626;--chip:#f1f5f9}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--ink:#e5e7eb;--muted:#94a3b8;--line:#1f2937;--chip:#1f2937}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:84px}
+header{background:#0f172a;color:#fff;padding:18px 16px 14px;padding-top:calc(18px + env(safe-area-inset-top))}
+header h1{margin:0;font-size:20px}
+header p{margin:4px 0 0;font-size:13px;color:#cbd5e1}
+main{max-width:640px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:15px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.big{font-size:34px;font-weight:800;margin:0}
+.sub{color:var(--muted);font-size:13px;margin:4px 0 0}
+.bar{height:12px;background:var(--chip);border-radius:99px;overflow:hidden;margin:12px 0 4px}
+.bar>div{height:100%;background:linear-gradient(90deg,var(--acc2),var(--acc));width:0;transition:width .4s}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--chip);border-radius:10px;padding:10px 12px}
+.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi b{font-size:18px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font-size:16px;font-weight:700;border:0;border-radius:12px;padding:14px;width:100%;cursor:pointer}
+.primary{background:var(--acc);color:#fff;margin-top:14px}
+.ghost{background:var(--chip);color:var(--ink);margin-top:8px}
+.danger{background:transparent;color:var(--warn);border:1px solid var(--warn);margin-top:8px}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.day{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:10px 0;gap:8px}
+.day:last-child{border:0}
+.day small{color:var(--muted);display:block}
+.day .val{text-align:right;font-weight:700}
+.day .del{background:none;border:0;color:var(--muted);font-size:18px;width:auto;padding:4px 8px}
+.pos{color:var(--acc)}.neg{color:var(--warn)}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border-radius:0;color:var(--muted);font-size:12px;font-weight:600;padding:10px 4px}
+nav button .ic{display:block;font-size:20px}
+nav button.on{color:var(--acc)}
+section{display:none}section.on{display:block}
+.seg{display:flex;background:var(--chip);border-radius:10px;padding:4px;gap:4px}
+.seg button{background:none;color:var(--muted);padding:10px;font-size:14px;margin:0}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.on{opacity:1}
+.empty{color:var(--muted);text-align:center;padding:20px 0;font-size:14px}
+</style>
+</head>
+<body>
+<header><h1>🚗 Meta Uber</h1><p id="mesTitulo">Controle do mês</p></header>
+<main>
+
+<!-- PAINEL -->
+<section id="painel" class="on">
+  <div class="card">
+    <h2>Lucro livre do mês</h2>
+    <p class="big" id="lucroMes">R$ 0,00</p>
+    <div class="bar"><div id="barra"></div></div>
+    <p class="sub" id="metaTxt">0% da meta</p>
+  </div>
+  <div class="card">
+    <h2>Quanto falta</h2>
+    <div class="grid">
+      <div class="kpi"><span>Dinheiro</span><b id="falta">—</b></div>
+      <div class="kpi"><span>Km estimados</span><b id="kmFalta">—</b></div>
+      <div class="kpi"><span>Horas estimadas</span><b id="hFalta">—</b></div>
+      <div class="kpi"><span>Tanque cheio (extra)</span><b id="tanque">—</b></div>
+    </div>
+    <p class="hint" id="baseEstim">Estimativa usa sua média real; sem dias lançados, usa R$ 1,30/km e R$ 32/h.</p>
+  </div>
+  <div class="card">
+    <h2>Seus números</h2>
+    <div class="grid">
+      <div class="kpi"><span>Faturamento</span><b id="fat">—</b></div>
+      <div class="kpi"><span>Combustível (est.)</span><b id="comb">—</b></div>
+      <div class="kpi"><span>Km rodados</span><b id="km">—</b></div>
+      <div class="kpi"><span>Horas online</span><b id="horas">—</b></div>
+      <div class="kpi"><span>R$ por km</span><b id="rkm">—</b></div>
+      <div class="kpi"><span>Lucro por hora</span><b id="rh">—</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- LANÇAR -->
+<section id="lancar">
+  <div class="card">
+    <h2>Lançar dia</h2>
+    <label>Data</label><input type="date" id="fData">
+    <div class="row2">
+      <div><label>Km inicial (painel)</label><input type="number" inputmode="numeric" id="fKmI" placeholder="85200"></div>
+      <div><label>Km final (painel)</label><input type="number" inputmode="numeric" id="fKmF" placeholder="85290"></div>
+    </div>
+    <label>Horas online</label><input type="number" inputmode="decimal" step="0.1" id="fHoras" placeholder="4">
+    <div class="row2">
+      <div><label>Ganho Uber (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fUber" placeholder="0,00"></div>
+      <div><label>Ganho 99 (R$)</label><input type="number" inputmode="decimal" step="0.01" id="f99" placeholder="0,00"></div>
+    </div>
+    <div class="row2">
+      <div><label>Gorjeta/bônus (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fBonus" placeholder="0,00"></div>
+      <div><label>Abasteceu (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fAbast" placeholder="0,00"></div>
+    </div>
+    <button class="primary" id="salvar">Salvar dia</button>
+    <p class="hint" id="previa"></p>
+  </div>
+</section>
+
+<!-- HISTÓRICO -->
+<section id="historico">
+  <div class="card">
+    <h2>Dias lançados</h2>
+    <label>Mês</label><input type="month" id="fMes">
+    <div id="lista"></div>
+  </div>
+</section>
+
+<!-- AJUSTES -->
+<section id="ajustes">
+  <div class="card">
+    <h2>Combustível</h2>
+    <div class="seg" id="segComb">
+      <button data-c="gasolina">Gasolina</button><button data-c="etanol">Etanol</button>
+    </div>
+    <div class="row2">
+      <div><label>Preço (R$/L)</label><input type="number" inputmode="decimal" step="0.01" id="cPreco"></div>
+      <div><label>Consumo (km/L)</label><input type="number" inputmode="decimal" step="0.1" id="cCons"></div>
+    </div>
+    <p class="hint" id="dicaComb"></p>
+  </div>
+  <div class="card">
+    <h2>Meta e custos</h2>
+    <label>Meta de lucro livre no mês (R$)</label><input type="number" inputmode="decimal" id="cMeta">
+    <label>Reserva de manutenção (R$ por km)</label><input type="number" inputmode="decimal" step="0.01" id="cManut">
+    <label>Capacidade do tanque (L)</label><input type="number" inputmode="numeric" id="cTanque">
+    <button class="primary" id="salvarCfg">Salvar ajustes</button>
+  </div>
+  <div class="card">
+    <h2>Backup</h2>
+    <p class="hint" style="margin-top:0">Os dados ficam salvos neste aparelho. Exporte de vez em quando para não perder.</p>
+    <button class="ghost" id="exportCsv">Exportar planilha (CSV)</button>
+    <button class="ghost" id="exportJson">Baixar backup</button>
+    <button class="ghost" id="importJson">Restaurar backup</button>
+    <input type="file" id="arq" accept=".json" hidden>
+    <button class="danger" id="apagarTudo">Apagar todos os dados</button>
+  </div>
+</section>
+
+</main>
+
+<nav>
+  <button data-t="painel" class="on"><span class="ic">📊</span>Painel</button>
+  <button data-t="lancar"><span class="ic">➕</span>Lançar</button>
+  <button data-t="historico"><span class="ic">📅</span>Histórico</button>
+  <button data-t="ajustes"><span class="ic">⚙️</span>Ajustes</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY='metaUber.v1';
+const DEF={cfg:{comb:'gasolina',gasolina:{preco:6.55,cons:12},etanol:{preco:4.53,cons:8.5},meta:1000,manut:0.18,tanque:54},dias:[]};
+const $=id=>document.getElementById(id);
+const brl=v=>(isFinite(v)?v:0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const num=v=>(isFinite(v)?v:0).toLocaleString('pt-BR',{maximumFractionDigits:0});
+const n=v=>{const x=parseFloat(String(v).replace(',','.'));return isFinite(x)?x:0};
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.cfg)return Object.assign(structuredClone(DEF),s,{cfg:Object.assign(structuredClone(DEF.cfg),s.cfg)});}catch(e){}return structuredClone(DEF)}
+let st=load();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){toast('Não foi possível salvar neste aparelho')}}
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
+const hoje=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+const custoKm=()=>{const c=st.cfg[st.cfg.comb];return c.cons>0?c.preco/c.cons:0};
+function calcDia(d){const km=Math.max(0,d.kmF-d.kmI),fat=d.uber+d.d99+d.bonus,comb=km*custoKm(),man=km*st.cfg.manut;return{km,fat,comb,man,lucro:fat-comb-man}}
+let mesSel=hoje().slice(0,7);
+
+function render(){
+  const [a,m]=mesSel.split('-');
+  const nomeMes=new Date(+a,+m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  $('mesTitulo').textContent='Controle de '+nomeMes;
+  const dias=st.dias.filter(d=>d.data.startsWith(mesSel));
+  let km=0,h=0,fat=0,comb=0,lucro=0;
+  dias.forEach(d=>{const c=calcDia(d);km+=c.km;h+=d.horas;fat+=c.fat;comb+=c.comb;lucro+=c.lucro});
+  const meta=st.cfg.meta,pct=meta>0?Math.max(0,Math.min(1,lucro/meta)):0;
+  $('lucroMes').textContent=brl(lucro);$('lucroMes').className='big '+(lucro<0?'neg':'');
+  $('barra').style.width=(pct*100).toFixed(1)+'%';
+  $('metaTxt').textContent=Math.round(pct*100)+'% da meta de '+brl(meta)+' · '+dias.length+' dia(s) trabalhado(s)';
+  const falta=Math.max(0,meta-lucro);
+  const custo=custoKm()+st.cfg.manut;
+  const lucroKm=km>0?lucro/km:1.30-custo;
+  const lucroH=h>0?lucro/h:(1.30-custo)*(1724/70);
+  $('falta').textContent=falta>0?brl(falta):'Meta batida! 🎉';
+  $('kmFalta').textContent=falta>0&&lucroKm>0?num(falta/lucroKm)+' km':'—';
+  $('hFalta').textContent=falta>0&&lucroH>0?(falta/lucroH).toFixed(1).replace('.',',')+' h':'—';
+  $('tanque').textContent=brl(st.cfg[st.cfg.comb].preco*st.cfg.tanque);
+  $('baseEstim').textContent=km>0?'Estimativa usa a sua média real deste mês.':'Sem dias lançados: estimativa usa R$ 1,30/km de ganho.';
+  $('fat').textContent=brl(fat);$('comb').textContent=brl(comb);
+  $('km').textContent=num(km);$('horas').textContent=h.toFixed(1).replace('.',',')+' h';
+  $('rkm').textContent=km>0?brl(fat/km):'—';$('rh').textContent=h>0?brl(lucro/h):'—';
+  // lista
+  $('fMes').value=mesSel;
+  const ord=[...dias].sort((x,y)=>y.data.localeCompare(x.data));
+  $('lista').innerHTML=ord.length?ord.map(d=>{const c=calcDia(d);const dt=new Date(d.data+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
+    return `<div class="day"><div><b>${dt}</b><small>${num(c.km)} km · ${String(d.horas).replace('.',',')} h · fat. ${brl(c.fat)}</small></div><div class="val ${c.lucro<0?'neg':'pos'}">${brl(c.lucro)}</div><button class="del" data-id="${d.id}" aria-label="Apagar">✕</button></div>`}).join(''):'<p class="empty">Nenhum dia lançado neste mês.</p>';
+  // ajustes
+  document.querySelectorAll('#segComb button').forEach(b=>b.classList.toggle('on',b.dataset.c===st.cfg.comb));
+  const c=st.cfg[st.cfg.comb];$('cPreco').value=c.preco;$('cCons').value=c.cons;
+  $('cMeta').value=st.cfg.meta;$('cManut').value=st.cfg.manut;$('cTanque').value=st.cfg.tanque;
+  const r=st.cfg.etanol.preco/st.cfg.gasolina.preco;
+  $('dicaComb').textContent=`Custo atual: ${brl(custoKm())}/km. Etanol custa ${(r*100).toFixed(0)}% da gasolina — ${r<=0.7?'etanol compensa.':'gasolina compensa.'}`;
+  previa();
+}
+function previa(){
+  const d=lerForm();if(!d){$('previa').textContent='';return}
+  const c=calcDia(d);$('previa').textContent=`${num(c.km)} km · combustível ${brl(c.comb)} · manutenção ${brl(c.man)} · lucro livre ${brl(c.lucro)}`;
+}
+function lerForm(){
+  const kmI=n($('fKmI').value),kmF=n($('fKmF').value);
+  if(!$('fKmI').value||!$('fKmF').value)return null;
+  return{data:$('fData').value||hoje(),kmI,kmF,horas:n($('fHoras').value),uber:n($('fUber').value),d99:n($('f99').value),bonus:n($('fBonus').value),abast:n($('fAbast').value)};
+}
+// eventos
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+  window.scrollTo(0,0);
+});
+['fKmI','fKmF','fHoras','fUber','f99','fBonus'].forEach(i=>$(i).addEventListener('input',previa));
+$('salvar').onclick=()=>{
+  const d=lerForm();
+  if(!d){toast('Preencha o km inicial e final');return}
+  if(d.kmF<d.kmI){toast('Km final menor que o inicial');return}
+  d.id=Date.now().toString(36);st.dias.push(d);save();
+  // sugere km inicial do próximo dia
+  ['fHoras','fUber','f99','fBonus','fAbast'].forEach(i=>$(i).value='');
+  $('fKmI').value=d.kmF;$('fKmF').value='';
+  mesSel=d.data.slice(0,7);render();toast('Dia salvo ✔');
+};
+$('lista').onclick=e=>{const id=e.target.dataset.id;if(!id)return;if(confirm('Apagar este dia?')){st.dias=st.dias.filter(d=>d.id!==id);save();render()}};
+$('fMes').onchange=e=>{if(e.target.value){mesSel=e.target.value;render()}};
+document.querySelectorAll('#segComb button').forEach(b=>b.onclick=()=>{st.cfg.comb=b.dataset.c;save();render()});
+$('salvarCfg').onclick=()=>{
+  const c=st.cfg[st.cfg.comb];c.preco=n($('cPreco').value)||c.preco;c.cons=n($('cCons').value)||c.cons;
+  st.cfg.meta=n($('cMeta').value);st.cfg.manut=n($('cManut').value);st.cfg.tanque=n($('cTanque').value)||54;
+  save();render();toast('Ajustes salvos ✔');
+};
+function baixar(nome,conteudo,tipo){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([conteudo],{type:tipo}));a.download=nome;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+$('exportCsv').onclick=()=>{
+  const linhas=[['Data','Km inicial','Km final','Km rodados','Horas','Uber','99','Bonus','Faturamento','Abastecido','Combustivel est.','Manutencao','Lucro livre']];
+  [...st.dias].sort((a,b)=>a.data.localeCompare(b.data)).forEach(d=>{const c=calcDia(d);linhas.push([d.data,d.kmI,d.kmF,c.km,d.horas,d.uber,d.d99,d.bonus,c.fat.toFixed(2),d.abast,c.comb.toFixed(2),c.man.toFixed(2),c.lucro.toFixed(2)])});
+  baixar('meta-uber.csv','﻿'+linhas.map(l=>l.join(';')).join('\n'),'text/csv');
+};
+$('exportJson').onclick=()=>baixar('meta-uber-backup.json',JSON.stringify(st),'application/json');
+$('importJson').onclick=()=>$('arq').click();
+$('arq').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const s=JSON.parse(t);if(!s.cfg||!Array.isArray(s.dias))throw 0;st=s;save();render();toast('Backup restaurado ✔')}catch(_){toast('Arquivo inválido')}})};
+$('apagarTudo').onclick=()=>{if(confirm('Apagar TODOS os dias e ajustes?')){st=structuredClone(DEF);save();render();toast('Dados apagados')}};
+$('fData').value=hoje();
+const ult=[...st.dias].sort((a,b)=>b.data.localeCompare(a.data))[0];if(ult)$('fKmI').value=ult.kmF;
+render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
