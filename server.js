@@ -226,6 +226,7 @@ function limparGasto(d) {
   return {
     id: String(d.id).slice(0, 40), data: d.data, valor: v,
     cat: CATS.includes(d.cat) ? d.cat : 'outro', desc: String(d.desc || '').slice(0, 80),
+    pessoal: d.pessoal === true,
   };
 }
 async function gravarGasto(db, g) {
