@@ -1,0 +1,9 @@
+{
+  "name": "meta-uber",
+  "version": "2.0.0",
+  "description": "Controle de ganhos no Uber/99 com meta mensal, PIN e banco na nuvem",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.21.2", "pg": "^8.13.1" }
+}
