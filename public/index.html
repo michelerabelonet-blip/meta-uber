@@ -52,6 +52,9 @@ section{display:none}section.on{display:block}
 .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.on{opacity:1}
 .empty{color:var(--muted);text-align:center;padding:20px 0;font-size:14px}
+.chk{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--ink)}
+.chk input{width:22px;height:22px}
+.tag{font-size:11px;background:var(--chip);border-radius:6px;padding:2px 6px;color:var(--muted);margin-left:4px}
 .banner{font-size:13px;padding:8px 16px;text-align:center;background:#fef3c7;color:#92400e;display:none}
 .banner.on{display:block}
 .banner.ok{background:#dcfce7;color:#166534}
@@ -139,6 +142,39 @@ section{display:none}section.on{display:block}
 </section>
 
 <!-- HISTÓRICO -->
+<section id="media">
+  <div class="card">
+    <h2>Média de consumo</h2>
+    <div class="grid">
+      <div class="kpi"><span>Última média</span><b id="mUlt">—</b></div>
+      <div class="kpi"><span>Média geral</span><b id="mGeral">—</b></div>
+      <div class="kpi"><span>Último preço/L</span><b id="mPreco">—</b></div>
+      <div class="kpi"><span>Custo real por km</span><b id="mCusto">—</b></div>
+    </div>
+    <p class="hint" id="mDica">Encha o tanque e lance aqui. A partir do 2º abastecimento com tanque cheio, a média aparece.</p>
+  </div>
+  <div class="card">
+    <h2>Lançar abastecimento</h2>
+    <div class="row2">
+      <div><label>Data</label><input type="date" id="aData"></div>
+      <div><label>Combustível</label><select id="aComb"><option value="gasolina">Gasolina</option><option value="etanol">Etanol</option></select></div>
+    </div>
+    <label>Km do painel na hora de abastecer</label><input type="number" inputmode="numeric" id="aKm">
+    <div class="row2">
+      <div><label>Litros</label><input type="number" inputmode="decimal" step="0.01" id="aLitros" placeholder="0,00"></div>
+      <div><label>Valor pago (R$)</label><input type="number" inputmode="decimal" step="0.01" id="aValor" placeholder="0,00"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="aCheio" checked> Enchi o tanque até o fim</label>
+    <label class="chk"><input type="checkbox" id="aAuto"> Usar minha média real nos cálculos do app</label>
+    <button class="primary" id="salvarAbast">Salvar abastecimento</button>
+    <p class="hint" id="aPrevia"></p>
+  </div>
+  <div class="card">
+    <h2>Abastecimentos</h2>
+    <div id="listaAbast"></div>
+  </div>
+</section>
+
 <section id="historico">
   <div class="card">
     <h2>Dias lançados</h2>
@@ -189,6 +225,7 @@ section{display:none}section.on{display:block}
 <nav>
   <button data-t="painel" class="on"><span class="ic">📊</span>Painel</button>
   <button data-t="lancar"><span class="ic">➕</span>Lançar</button>
+  <button data-t="media"><span class="ic">⛽</span>Média</button>
   <button data-t="historico"><span class="ic">📅</span>Histórico</button>
   <button data-t="ajustes"><span class="ic">⚙️</span>Ajustes</button>
 </nav>
@@ -196,17 +233,70 @@ section{display:none}section.on{display:block}
 
 <script>
 const KEY='metaUber.v1';
-const DEF={cfg:{comb:'gasolina',gasolina:{preco:6.55,cons:12},etanol:{preco:4.53,cons:8.5},meta:1000,manut:0.18,tanque:54},dias:[]};
+const DEF={cfg:{comb:'gasolina',gasolina:{preco:6.55,cons:12},etanol:{preco:4.53,cons:8.5},meta:1000,manut:0.18,tanque:54,autoMedia:true},dias:[],abast:[]};
 const $=id=>document.getElementById(id);
 const brl=v=>(isFinite(v)?v:0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const num=v=>(isFinite(v)?v:0).toLocaleString('pt-BR',{maximumFractionDigits:0});
 const n=v=>{const x=parseFloat(String(v).replace(',','.'));return isFinite(x)?x:0};
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.cfg)return Object.assign(structuredClone(DEF),s,{cfg:Object.assign(structuredClone(DEF.cfg),s.cfg)});}catch(e){}return structuredClone(DEF)}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.cfg)return Object.assign(structuredClone(DEF),s,{abast:Array.isArray(s.abast)?s.abast:[],cfg:Object.assign(structuredClone(DEF.cfg),s.cfg)});}catch(e){}return structuredClone(DEF)}
 let st=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){toast('Não foi possível salvar neste aparelho')}}
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
 const hoje=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const custoKm=()=>{const c=st.cfg[st.cfg.comb];return c.cons>0?c.preco/c.cons:0};
+// ---------- média de consumo (método do tanque cheio) ----------
+function calcMedias(){
+  const lista=[...(st.abast||[])].sort((a,b)=>a.km-b.km||a.data.localeCompare(b.data));
+  let ultCheio=null,litAcum=0,valAcum=0;const res={};
+  for(const a of lista){
+    if(ultCheio){litAcum+=a.litros;valAcum+=a.valor}
+    if(a.cheio){
+      if(ultCheio&&a.km>ultCheio.km&&litAcum>0){
+        const km=a.km-ultCheio.km;res[a.id]={km,litros:litAcum,media:km/litAcum,custoKm:valAcum/km,comb:a.comb};
+      }
+      ultCheio=a;litAcum=0;valAcum=0;
+    }
+  }
+  const trechos=lista.filter(a=>res[a.id]).map(a=>res[a.id]);
+  const soma=(arr,k)=>arr.reduce((t,x)=>t+x[k],0);
+  const geral=trechos.length?soma(trechos,'km')/soma(trechos,'litros'):null;
+  const custo=trechos.length?trechos.reduce((t,x)=>t+x.custoKm*x.km,0)/soma(trechos,'km'):null;
+  return{lista,res,trechos,geral,custo,ult:trechos.length?trechos[trechos.length-1]:null};
+}
+// média dos últimos 3 trechos de um combustível
+function mediaComb(m,comb){const t=m.trechos.filter(x=>x.comb===comb).slice(-3);if(!t.length)return null;return t.reduce((s,x)=>s+x.km,0)/t.reduce((s,x)=>s+x.litros,0)}
+function aplicarMedia(){
+  if(!st.cfg.autoMedia)return false;
+  const m=calcMedias();let mudou=false;
+  ['gasolina','etanol'].forEach(c=>{const md=mediaComb(m,c);if(md&&Math.abs(md-st.cfg[c].cons)>0.005){st.cfg[c].cons=+md.toFixed(2);mudou=true}});
+  const ultC={};m.lista.forEach(a=>{if(a.litros>0&&a.valor>0)ultC[a.comb]=a});
+  Object.values(ultC).forEach(a=>{const p=+(a.valor/a.litros).toFixed(3);if(Math.abs(p-st.cfg[a.comb].preco)>0.0005){st.cfg[a.comb].preco=p;mudou=true}});
+  return mudou;
+}
+const kmL=v=>v==null?'—':v.toFixed(1).replace('.',',')+' km/L';
+function renderMedia(){
+  const m=calcMedias();
+  $('mUlt').textContent=m.ult?kmL(m.ult.media):'—';
+  $('mGeral').textContent=kmL(m.geral);
+  const ultA=m.lista[m.lista.length-1];
+  $('mPreco').textContent=ultA&&ultA.litros>0?brl(ultA.valor/ultA.litros):'—';
+  $('mCusto').textContent=m.custo!=null?brl(m.custo):'—';
+  $('mDica').textContent=!m.lista.length?'Encha o tanque e lance aqui. A partir do 2º abastecimento com tanque cheio, a média aparece.':
+    !m.trechos.length?'Primeiro abastecimento registrado. Na próxima vez que encher o tanque, a média aparece.':
+    (st.cfg.autoMedia?'O app está usando sua média real para calcular combustível e quanto falta.':'Sua média real não está sendo usada nos cálculos (marque a opção abaixo).');
+  $('aAuto').checked=!!st.cfg.autoMedia;
+  $('listaAbast').innerHTML=m.lista.length?[...m.lista].reverse().map(a=>{const r=m.res[a.id];const dt=new Date(a.data+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    return `<div class="day"><div><b>${dt}</b> <span class="tag">${a.comb}</span>${a.cheio?'':'<span class="tag">parcial</span>'}<small>${num(a.km)} km · ${String(a.litros).replace('.',',')} L · ${brl(a.valor)}${a.litros>0?' · '+brl(a.valor/a.litros)+'/L':''}</small></div><div class="val">${r?kmL(r.media)+'<small>'+num(r.km)+' km rodados</small>':'<small>—</small>'}</div><button class="del" data-ab="${a.id}" aria-label="Apagar">✕</button></div>`}).join(''):'<p class="empty">Nenhum abastecimento lançado.</p>';
+  previaAbast();
+}
+function previaAbast(){
+  const km=n($('aKm').value),l=n($('aLitros').value),v=n($('aValor').value);
+  if(!km||!l){$('aPrevia').textContent=l&&v?`Preço: ${brl(v/l)}/L`:'';return}
+  const m=calcMedias();const ant=[...m.lista].filter(a=>a.cheio&&a.km<km).pop();
+  let t=v?`Preço: ${brl(v/l)}/L`:'';
+  if(ant&&$('aCheio').checked){const lit=m.lista.filter(a=>a.km>ant.km&&a.km<km).reduce((s,a)=>s+a.litros,0)+l;t+=(t?' · ':'')+`Média deste tanque: ${kmL((km-ant.km)/lit)} (${num(km-ant.km)} km)`}
+  $('aPrevia').textContent=t;
+}
 function calcDia(d){const km=Math.max(0,d.kmF-d.kmI),fat=d.uber+d.d99+d.bonus,comb=km*custoKm(),man=km*st.cfg.manut;return{km,fat,comb,man,lucro:fat-comb-man}}
 let mesSel=hoje().slice(0,7);
 
@@ -242,6 +332,7 @@ function render(){
   document.querySelectorAll('#segComb button').forEach(b=>b.classList.toggle('on',b.dataset.c===st.cfg.comb));
   const c=st.cfg[st.cfg.comb];$('cPreco').value=c.preco;$('cCons').value=c.cons;
   $('cMeta').value=st.cfg.meta;$('cManut').value=st.cfg.manut;$('cTanque').value=st.cfg.tanque;
+  renderMedia();
   const r=st.cfg.etanol.preco/st.cfg.gasolina.preco;
   $('dicaComb').textContent=`Custo atual: ${brl(custoKm())}/km. Etanol custa ${(r*100).toFixed(0)}% da gasolina — ${r<=0.7?'etanol compensa.':'gasolina compensa.'}`;
   previa();
@@ -344,11 +435,11 @@ async function carregarNuvem(){
   const srv=await api('GET','/api/dados');
   const local=st;
   // migração: o servidor está vazio e o celular tem dados → sobe tudo
-  if(!srv.dias.length&&!srv.cfg&&local.dias.length){
-    await api('POST','/api/importar',{cfg:local.cfg,dias:local.dias});
+  if(!srv.dias.length&&!srv.cfg&&(local.dias.length||(local.abast||[]).length)){
+    await api('POST','/api/importar',{cfg:local.cfg,dias:local.dias,abast:local.abast||[]});
     toast(`${local.dias.length} dia(s) do celular enviados para a nuvem ✔`);
   }else{
-    st={cfg:Object.assign(structuredClone(DEF.cfg),srv.cfg||local.cfg),dias:srv.dias};
+    st={cfg:Object.assign(structuredClone(DEF.cfg),srv.cfg||local.cfg),dias:srv.dias,abast:srv.abast||[]};
     if(!srv.cfg)await api('PUT','/api/cfg',st.cfg);
   }
   modo='nuvem';save();banner('');render();atualizarInfo();
@@ -386,6 +477,23 @@ $('salvar').onclick=()=>{
   nuvem({m:'POST',u:'/api/dias',b:d});
 };
 $('lista').onclick=e=>{const id=e.target.dataset.id;if(!id)return;if(confirm('Apagar este dia?')){st.dias=st.dias.filter(d=>d.id!==id);save();render();nuvem({m:'DELETE',u:'/api/dias/'+encodeURIComponent(id)})}};
+['aKm','aLitros','aValor'].forEach(i=>$(i).addEventListener('input',previaAbast));$('aCheio').onchange=previaAbast;
+$('salvarAbast').onclick=()=>{
+  const a={data:$('aData').value||hoje(),comb:$('aComb').value,km:n($('aKm').value),litros:n($('aLitros').value),valor:n($('aValor').value),cheio:$('aCheio').checked};
+  if(!a.km){toast('Informe o km do painel');return}
+  if(!(a.litros>0)){toast('Informe os litros');return}
+  if((st.abast||[]).some(x=>x.km===a.km)){toast('Já existe abastecimento com esse km');return}
+  a.id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  st.abast=(st.abast||[]).concat(a);
+  const r=calcMedias().res[a.id];
+  const mudou=aplicarMedia();
+  save();render();
+  toast(r?`Média: ${kmL(r.media)} ✔`:'Abastecimento salvo ✔');
+  nuvem({m:'POST',u:'/api/abast',b:a});if(mudou)nuvem({m:'PUT',u:'/api/cfg',b:st.cfg});
+  ['aKm','aLitros','aValor'].forEach(i=>$(i).value='');$('aCheio').checked=true;previaAbast();
+};
+$('aAuto').onchange=e=>{st.cfg.autoMedia=e.target.checked;aplicarMedia();save();render();nuvem({m:'PUT',u:'/api/cfg',b:st.cfg})};
+$('listaAbast').onclick=e=>{const id=e.target.dataset.ab;if(!id)return;if(confirm('Apagar este abastecimento?')){st.abast=st.abast.filter(a=>a.id!==id);const mudou=aplicarMedia();save();render();nuvem({m:'DELETE',u:'/api/abast/'+encodeURIComponent(id)});if(mudou)nuvem({m:'PUT',u:'/api/cfg',b:st.cfg})}};
 $('fMes').onchange=e=>{if(e.target.value){mesSel=e.target.value;render()}};
 document.querySelectorAll('#segComb button').forEach(b=>b.onclick=()=>{st.cfg.comb=b.dataset.c;save();render();nuvem({m:'PUT',u:'/api/cfg',b:st.cfg})});
 $('salvarCfg').onclick=()=>{
@@ -401,9 +509,9 @@ $('exportCsv').onclick=()=>{
 };
 $('exportJson').onclick=()=>baixar('meta-uber-backup.json',JSON.stringify(st),'application/json');
 $('importJson').onclick=()=>$('arq').click();
-$('arq').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const s=JSON.parse(t);if(!s.cfg||!Array.isArray(s.dias))throw 0;st=s;save();render();toast('Backup restaurado ✔');nuvem({m:'POST',u:'/api/importar',b:{cfg:s.cfg,dias:s.dias,substituir:true}})}catch(_){toast('Arquivo inválido')}});e.target.value=''};
+$('arq').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const s=JSON.parse(t);if(!s.cfg||!Array.isArray(s.dias))throw 0;s.abast=Array.isArray(s.abast)?s.abast:[];st=s;save();render();toast('Backup restaurado ✔');nuvem({m:'POST',u:'/api/importar',b:{cfg:s.cfg,dias:s.dias,abast:s.abast,substituir:true}})}catch(_){toast('Arquivo inválido')}});e.target.value=''};
 $('apagarTudo').onclick=()=>{if(confirm('Apagar TODOS os dias e ajustes'+(modo==='nuvem'?' (também da nuvem)':'')+'?')){st=structuredClone(DEF);save();render();toast('Dados apagados');nuvem({m:'POST',u:'/api/apagar-tudo'})}};
-$('fData').value=hoje();
+$('fData').value=hoje();$('aData').value=hoje();$('aComb').value=st.cfg.comb;
 const ult=[...st.dias].sort((a,b)=>b.data.localeCompare(a.data))[0];if(ult)$('fKmI').value=ult.kmF;
 iniciar();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});

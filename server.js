@@ -35,6 +35,12 @@ async function iniciarBanco() {
         criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS mu_dias_data ON mu_dias (data);
+      CREATE TABLE IF NOT EXISTS mu_abast (
+        id TEXT PRIMARY KEY,
+        km NUMERIC NOT NULL,
+        d JSONB NOT NULL,
+        criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `);
     if (!SECRET) {
       const r = await pool.query(`SELECT v FROM mu_config WHERE k='secret'`);
@@ -160,7 +166,8 @@ app.post('/api/pin/trocar', autenticar, wrap(async (req, res) => {
 app.get('/api/dados', autenticar, wrap(async (req, res) => {
   const cfg = await getCfg('cfg');
   const r = await pool.query('SELECT d FROM mu_dias ORDER BY data, criado_em');
-  res.json({ cfg, dias: r.rows.map(x => x.d) });
+  const a = await pool.query('SELECT d FROM mu_abast ORDER BY km, criado_em');
+  res.json({ cfg, dias: r.rows.map(x => x.d), abast: a.rows.map(x => x.d) });
 }));
 
 app.put('/api/cfg', autenticar, wrap(async (req, res) => {
@@ -180,6 +187,31 @@ function limparDia(d) {
   };
 }
 
+function limparAbast(d) {
+  const n = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d.data) || !d.id || !(n(d.litros) > 0)) return null;
+  return {
+    id: String(d.id).slice(0, 40), data: d.data, km: n(d.km), litros: n(d.litros),
+    valor: n(d.valor), comb: d.comb === 'etanol' ? 'etanol' : 'gasolina', cheio: d.cheio !== false,
+  };
+}
+async function gravarAbast(db, a) {
+  await db.query(
+    'INSERT INTO mu_abast (id, km, d) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET km = EXCLUDED.km, d = EXCLUDED.d',
+    [a.id, a.km, JSON.stringify(a)]
+  );
+}
+app.post('/api/abast', autenticar, wrap(async (req, res) => {
+  const a = limparAbast(req.body);
+  if (!a) return res.status(400).json({ erro: 'Abastecimento inválido' });
+  await gravarAbast(pool, a);
+  res.json({ ok: true, abast: a });
+}));
+app.delete('/api/abast/:id', autenticar, wrap(async (req, res) => {
+  await pool.query('DELETE FROM mu_abast WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
+}));
+
 app.post('/api/dias', autenticar, wrap(async (req, res) => {
   const d = limparDia(req.body);
   if (!d) return res.status(400).json({ erro: 'Dia inválido' });
@@ -197,12 +229,14 @@ app.delete('/api/dias/:id', autenticar, wrap(async (req, res) => {
 
 // importa (mescla) dias e, opcionalmente, ajustes — usado na migração do celular e no restaurar backup
 app.post('/api/importar', autenticar, wrap(async (req, res) => {
-  const { cfg, dias, substituir } = req.body || {};
+  const { cfg, dias, abast, substituir } = req.body || {};
   const lista = (Array.isArray(dias) ? dias : []).map(limparDia).filter(Boolean);
+  const listaA = (Array.isArray(abast) ? abast : []).map(limparAbast).filter(Boolean);
   const cli = await pool.connect();
   try {
     await cli.query('BEGIN');
-    if (substituir) await cli.query('DELETE FROM mu_dias');
+    if (substituir) { await cli.query('DELETE FROM mu_dias'); await cli.query('DELETE FROM mu_abast'); }
+    for (const a of listaA) await gravarAbast(cli, a);
     for (const d of lista) {
       await cli.query(
         'INSERT INTO mu_dias (id, data, d) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, d = EXCLUDED.d',
@@ -224,6 +258,7 @@ app.post('/api/importar', autenticar, wrap(async (req, res) => {
 
 app.post('/api/apagar-tudo', autenticar, wrap(async (req, res) => {
   await pool.query('DELETE FROM mu_dias');
+  await pool.query('DELETE FROM mu_abast');
   await pool.query(`DELETE FROM mu_config WHERE k = 'cfg'`);
   res.json({ ok: true });
 }));
