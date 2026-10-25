@@ -35,6 +35,12 @@ async function iniciarBanco() {
         criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS mu_dias_data ON mu_dias (data);
+      CREATE TABLE IF NOT EXISTS mu_gastos (
+        id TEXT PRIMARY KEY,
+        data DATE NOT NULL,
+        d JSONB NOT NULL,
+        criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
       CREATE TABLE IF NOT EXISTS mu_abast (
         id TEXT PRIMARY KEY,
         km NUMERIC NOT NULL,
@@ -167,7 +173,8 @@ app.get('/api/dados', autenticar, wrap(async (req, res) => {
   const cfg = await getCfg('cfg');
   const r = await pool.query('SELECT d FROM mu_dias ORDER BY data, criado_em');
   const a = await pool.query('SELECT d FROM mu_abast ORDER BY km, criado_em');
-  res.json({ cfg, dias: r.rows.map(x => x.d), abast: a.rows.map(x => x.d) });
+  const g = await pool.query('SELECT d FROM mu_gastos ORDER BY data, criado_em');
+  res.json({ cfg, dias: r.rows.map(x => x.d), abast: a.rows.map(x => x.d), gastos: g.rows.map(x => x.d) });
 }));
 
 app.put('/api/cfg', autenticar, wrap(async (req, res) => {
@@ -212,6 +219,32 @@ app.delete('/api/abast/:id', autenticar, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+const CATS = ['lanche', 'agua', 'cafe', 'lavagem', 'estacionamento', 'outro'];
+function limparGasto(d) {
+  const v = Number(d && d.valor);
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d.data) || !d.id || !(v > 0)) return null;
+  return {
+    id: String(d.id).slice(0, 40), data: d.data, valor: v,
+    cat: CATS.includes(d.cat) ? d.cat : 'outro', desc: String(d.desc || '').slice(0, 80),
+  };
+}
+async function gravarGasto(db, g) {
+  await db.query(
+    'INSERT INTO mu_gastos (id, data, d) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, d = EXCLUDED.d',
+    [g.id, g.data, JSON.stringify(g)]
+  );
+}
+app.post('/api/gastos', autenticar, wrap(async (req, res) => {
+  const g = limparGasto(req.body);
+  if (!g) return res.status(400).json({ erro: 'Gasto inválido' });
+  await gravarGasto(pool, g);
+  res.json({ ok: true, gasto: g });
+}));
+app.delete('/api/gastos/:id', autenticar, wrap(async (req, res) => {
+  await pool.query('DELETE FROM mu_gastos WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
+}));
+
 app.post('/api/dias', autenticar, wrap(async (req, res) => {
   const d = limparDia(req.body);
   if (!d) return res.status(400).json({ erro: 'Dia inválido' });
@@ -229,14 +262,16 @@ app.delete('/api/dias/:id', autenticar, wrap(async (req, res) => {
 
 // importa (mescla) dias e, opcionalmente, ajustes — usado na migração do celular e no restaurar backup
 app.post('/api/importar', autenticar, wrap(async (req, res) => {
-  const { cfg, dias, abast, substituir } = req.body || {};
+  const { cfg, dias, abast, gastos, substituir } = req.body || {};
+  const listaG = (Array.isArray(gastos) ? gastos : []).map(limparGasto).filter(Boolean);
   const lista = (Array.isArray(dias) ? dias : []).map(limparDia).filter(Boolean);
   const listaA = (Array.isArray(abast) ? abast : []).map(limparAbast).filter(Boolean);
   const cli = await pool.connect();
   try {
     await cli.query('BEGIN');
-    if (substituir) { await cli.query('DELETE FROM mu_dias'); await cli.query('DELETE FROM mu_abast'); }
+    if (substituir) { await cli.query('DELETE FROM mu_dias'); await cli.query('DELETE FROM mu_abast'); await cli.query('DELETE FROM mu_gastos'); }
     for (const a of listaA) await gravarAbast(cli, a);
+    for (const g of listaG) await gravarGasto(cli, g);
     for (const d of lista) {
       await cli.query(
         'INSERT INTO mu_dias (id, data, d) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, d = EXCLUDED.d',
@@ -259,6 +294,7 @@ app.post('/api/importar', autenticar, wrap(async (req, res) => {
 app.post('/api/apagar-tudo', autenticar, wrap(async (req, res) => {
   await pool.query('DELETE FROM mu_dias');
   await pool.query('DELETE FROM mu_abast');
+  await pool.query('DELETE FROM mu_gastos');
   await pool.query(`DELETE FROM mu_config WHERE k = 'cfg'`);
   res.json({ ok: true });
 }));
