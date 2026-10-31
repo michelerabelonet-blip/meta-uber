@@ -59,6 +59,22 @@ section{display:none}section.on{display:block}
 .chip.pes{background:var(--chip);color:var(--muted)}
 .riscado{text-decoration:line-through;color:var(--muted)!important}
 .tot{display:flex;justify-content:space-between;font-weight:700;padding-top:10px}
+.mais{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.mais summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+.res .resTop{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0 12px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.res .resTop span{font-size:14px;color:var(--muted)}
+.res .resTop b{font-size:30px;font-weight:800}
+.res .ln{display:flex;justify-content:space-between;padding:7px 0;font-size:15px}
+.res .ln span{color:var(--muted)}
+.res .ln.c b{color:var(--warn)}
+.res .ln.tot{border-top:1px solid var(--line);margin-top:2px;padding-top:9px}
+.res .sep{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:10px}
+.res .mini{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.res .mini div{background:var(--chip);border-radius:10px;padding:8px 10px}
+.res .mini span{display:block;font-size:12px;color:var(--muted)}
+.res .mini b{font-size:16px}
+.det{padding:4px 2px 12px;border-bottom:1px solid var(--line)}
+.day[data-x]{cursor:pointer}
 .chk{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--ink)}
 .chk input{width:22px;height:22px}
 .tag{font-size:11px;background:var(--chip);border-radius:6px;padding:2px 6px;color:var(--muted);margin-left:4px}
@@ -136,17 +152,22 @@ section{display:none}section.on{display:block}
       <div><label>Km inicial (painel)</label><input type="number" inputmode="numeric" id="fKmI" placeholder="85200"></div>
       <div><label>Km final (painel)</label><input type="number" inputmode="numeric" id="fKmF" placeholder="85290"></div>
     </div>
-    <label>Horas online</label><input type="number" inputmode="decimal" step="0.1" id="fHoras" placeholder="4">
-    <div class="row2">
-      <div><label>Ganho Uber (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fUber" placeholder="0,00"></div>
-      <div><label>Ganho 99 (R$)</label><input type="number" inputmode="decimal" step="0.01" id="f99" placeholder="0,00"></div>
-    </div>
-    <div class="row2">
-      <div><label>Gorjeta/bônus (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fBonus" placeholder="0,00"></div>
-      <div><label>Abasteceu (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fAbast" placeholder="0,00"></div>
-    </div>
+    <label>Valor que fiz no dia (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fUber" placeholder="0,00">
+    <details id="fMais" class="mais">
+      <summary>Mais detalhes (opcional)</summary>
+      <label>Horas online</label><input type="number" inputmode="decimal" step="0.1" id="fHoras" placeholder="4">
+      <div class="row2">
+        <div><label>Ganho na 99 (R$)</label><input type="number" inputmode="decimal" step="0.01" id="f99" placeholder="0,00"></div>
+        <div><label>Gorjeta/bônus (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fBonus" placeholder="0,00"></div>
+      </div>
+      <label>Abasteceu (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fAbast" placeholder="0,00">
+      <p class="hint">Se rodou na 99, coloque o valor dela separado; o "valor que fiz" fica só com o Uber.</p>
+    </details>
     <button class="primary" id="salvar">Salvar dia</button>
-    <p class="hint" id="previa"></p>
+  </div>
+  <div class="card" id="resCard" style="display:none">
+    <h2 id="resTit">Resultado do dia</h2>
+    <div id="resDia"></div>
   </div>
   <div class="card">
     <h2>Gastos do dia</h2>
@@ -203,6 +224,7 @@ section{display:none}section.on{display:block}
 <section id="historico">
   <div class="card">
     <h2>Dias lançados</h2>
+    <p class="hint" style="margin-top:0">Toque em um dia para ver o custo e o lucro detalhados.</p>
     <label>Mês</label><input type="month" id="fMes">
     <div id="lista"></div>
   </div>
@@ -369,8 +391,8 @@ function render(){
   const ord=[...dias].sort((x,y)=>y.data.localeCompare(x.data));
   const vistos=new Set();
   const fmtD=x=>new Date(x+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
-  const linhas=ord.map(d=>{const c=calcDia(d);const g=vistos.has(d.data)?0:gastosData(d.data);vistos.add(d.data);const l=c.lucro-g;
-    return {data:d.data,html:`<div class="day"><div><b>${fmtD(d.data)}</b><small>${num(c.km)} km · ${String(d.horas).replace('.',',')} h · fat. ${brl(c.fat)}${g?` · gastos ${brl(g)}`:''}</small></div><div class="val ${l<0?'neg':'pos'}">${brl(l)}</div><button class="del" data-id="${d.id}" aria-label="Apagar">✕</button></div>`}});
+  const linhas=ord.map(d=>{const c=calcDia(d);const g=gDia(d);vistos.add(d.data);const l=c.lucro-g;
+    return {data:d.data,html:`<div class="day" data-x="${d.id}"><div><b>${fmtD(d.data)}</b><small>${num(c.km)} km${d.horas?` · ${String(d.horas).replace('.',',')} h`:''} · fat. ${brl(c.fat)}${g?` · gastos ${brl(g)}`:''}</small></div><div class="val ${l<0?'neg':'pos'}">${brl(l)}</div><button class="del" data-id="${d.id}" aria-label="Apagar">✕</button></div><div class="det" id="det-${d.id}" hidden></div>`}});
   [...new Set((st.gastos||[]).filter(g=>g.data.startsWith(mesSel)&&!g.pessoal&&!vistos.has(g.data)).map(g=>g.data))].forEach(dt=>{
     linhas.push({data:dt,html:`<div class="day"><div><b>${fmtD(dt)}</b><small>só gastos (sem corridas lançadas)</small></div><div class="val neg">${brl(-gastosData(dt))}</div><span style="width:34px"></span></div>`})});
   linhas.sort((a,b)=>b.data.localeCompare(a.data));
@@ -384,9 +406,37 @@ function render(){
   $('dicaComb').textContent=`Custo atual: ${brl(custoKm())}/km. Etanol custa ${(r*100).toFixed(0)}% da gasolina — ${r<=0.7?'etanol compensa.':'gasolina compensa.'}`;
   previa();
 }
+// gastos do dia entram só no primeiro lançamento daquela data (evita contar duas vezes)
+const gDia=d=>{const prim=st.dias.find(x=>x.data===d.data);return(!prim||prim.id===d.id)?gastosData(d.data):0};
+function detalheDia(d,g){
+  const c=calcDia(d);const cust=c.comb+c.man+g;const lucro=c.fat-cust;
+  const cons=st.cfg[st.cfg.comb].cons;const lit=cons>0?c.km/cons:0;
+  const L=(a,b,cls='')=>`<div class="ln ${cls}"><span>${a}</span><b>${b}</b></div>`;
+  return `<div class="res">
+    <div class="resTop"><span>Lucro do dia</span><b class="${lucro<0?'neg':'pos'}">${brl(lucro)}</b></div>
+    ${L('Km rodados',num(c.km)+' km')}
+    ${L('Valor que fiz',brl(c.fat))}
+    <div class="sep">Custos</div>
+    ${L(`Combustível (≈ ${lit.toFixed(1).replace('.',',')} L)`,'− '+brl(c.comb),'c')}
+    ${L('Reserva de manutenção','− '+brl(c.man),'c')}
+    ${g?L('Gastos do dia','− '+brl(g),'c'):''}
+    ${L('Custo total','− '+brl(cust),'c tot')}
+    <div class="mini">
+      <div><span>Custo por km</span><b>${c.km?brl(cust/c.km):'—'}</b></div>
+      <div><span>Lucro por km</span><b>${c.km?brl(lucro/c.km):'—'}</b></div>
+      <div><span>Margem</span><b>${c.fat?Math.round(lucro/c.fat*100)+'%':'—'}</b></div>
+      <div><span>Lucro por hora</span><b>${d.horas?brl(lucro/d.horas):'—'}</b></div>
+    </div>
+    ${d.abast?`<p class="hint">Você abasteceu ${brl(d.abast)} neste dia. Esse valor não entra como custo: o custo acima é o combustível que o carro gastou rodando esses km.</p>`:''}
+  </div>`;
+}
+let ultimoSalvo=null;
 function previa(){
-  const d=lerForm();if(!d){$('previa').textContent='';return}
-  const c=calcDia(d);const g=gastosData(d.data);$('previa').textContent=`${num(c.km)} km · combustível ${brl(c.comb)} · manutenção ${brl(c.man)}${g?` · gastos ${brl(g)}`:''} · lucro livre ${brl(c.lucro-g)}`;
+  const d=lerForm();
+  if(d){$('resTit').textContent='Resultado do dia (prévia)';$('resDia').innerHTML=detalheDia(d,gDia(d));$('resCard').style.display='block';return}
+  const x=ultimoSalvo&&st.dias.find(y=>y.id===ultimoSalvo);
+  if(x){$('resTit').textContent='Dia salvo — '+new Date(x.data+'T12:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});$('resDia').innerHTML=detalheDia(x,gDia(x));$('resCard').style.display='block';return}
+  $('resCard').style.display='none';
 }
 function lerForm(){
   const kmI=n($('fKmI').value),kmF=n($('fKmF').value);
@@ -512,18 +562,19 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
   window.scrollTo(0,0);
 });
-['fKmI','fKmF','fHoras','fUber','f99','fBonus'].forEach(i=>$(i).addEventListener('input',previa));
+['fKmI','fKmF','fHoras','fUber','f99','fBonus','fAbast'].forEach(i=>$(i).addEventListener('input',previa));
 $('salvar').onclick=()=>{
   const d=lerForm();
   if(!d){toast('Preencha o km inicial e final');return}
   if(d.kmF<d.kmI){toast('Km final menor que o inicial');return}
-  d.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);st.dias.push(d);save();
+  d.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);st.dias.push(d);ultimoSalvo=d.id;save();
   ['fHoras','fUber','f99','fBonus','fAbast'].forEach(i=>$(i).value='');
   $('fKmI').value=d.kmF;$('fKmF').value='';
   mesSel=d.data.slice(0,7);render();toast('Dia salvo ✔');
   nuvem({m:'POST',u:'/api/dias',b:d});
 };
-$('lista').onclick=e=>{const id=e.target.dataset.id;if(!id)return;if(confirm('Apagar este dia?')){st.dias=st.dias.filter(d=>d.id!==id);save();render();nuvem({m:'DELETE',u:'/api/dias/'+encodeURIComponent(id)})}};
+$('lista').onclick=e=>{const id=e.target.dataset.id;
+  if(!id){const r=e.target.closest('[data-x]');if(r){const det=$('det-'+r.dataset.x),d=st.dias.find(x=>x.id===r.dataset.x);if(det&&d){det.hidden=!det.hidden;if(!det.hidden)det.innerHTML=detalheDia(d,gDia(d))}}return}if(confirm('Apagar este dia?')){st.dias=st.dias.filter(d=>d.id!==id);save();render();nuvem({m:'DELETE',u:'/api/dias/'+encodeURIComponent(id)})}};
 ['aKm','aLitros','aValor'].forEach(i=>$(i).addEventListener('input',previaAbast));$('aCheio').onchange=previaAbast;
 $('salvarAbast').onclick=()=>{
   const a={data:$('aData').value||hoje(),comb:$('aComb').value,km:n($('aKm').value),litros:n($('aLitros').value),valor:n($('aValor').value),cheio:$('aCheio').checked};
