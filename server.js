@@ -191,6 +191,8 @@ function limparDia(d) {
     id: String(d.id).slice(0, 40), data: d.data,
     kmI: n(d.kmI), kmF: n(d.kmF), horas: n(d.horas),
     uber: n(d.uber), d99: n(d.d99), bonus: n(d.bonus), abast: n(d.abast),
+    hIni: /^\d{2}:\d{2}$/.test(d.hIni) ? d.hIni : '', hFim: /^\d{2}:\d{2}$/.test(d.hFim) ? d.hFim : '',
+    intervalo: n(d.intervalo),
   };
 }
 

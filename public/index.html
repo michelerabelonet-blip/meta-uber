@@ -59,6 +59,24 @@ section{display:none}section.on{display:block}
 .chip.pes{background:var(--chip);color:var(--muted)}
 .riscado{text-decoration:line-through;color:var(--muted)!important}
 .tot{display:flex;justify-content:space-between;font-weight:700;padding-top:10px}
+.row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 70px;gap:8px}
+.row3 input{min-width:0;padding:12px 8px}
+.cron{text-align:center;padding:4px 0 6px}
+.cron .big{font-variant-numeric:tabular-nums;font-size:42px}
+.cron .big.pausa{color:var(--muted)}
+.btn2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn2 button{margin-top:10px}
+.amber{background:#f59e0b;color:#fff}
+.dark{background:#0f172a;color:#fff}
+.link{background:none;color:var(--muted);font-size:13px;font-weight:600;padding:8px;margin-top:4px;text-decoration:underline}
+.rk{margin-top:6px}
+.rk .it{display:grid;grid-template-columns:96px 1fr 84px;align-items:center;gap:8px;padding:6px 0;font-size:14px}
+.rk .it small{display:block;color:var(--muted);font-size:11px}
+.rk .tr{height:10px;background:var(--chip);border-radius:99px;overflow:hidden}
+.rk .tr>div{height:100%;background:var(--acc2);border-radius:99px}
+.rk .it.top .tr>div{background:var(--acc)}
+.rk .it b{text-align:right}
+.rk h3{font-size:13px;color:var(--muted);margin:14px 0 2px;font-weight:700}
 .mais{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .mais summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
 .res .resTop{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0 12px;border-bottom:1px solid var(--line);margin-bottom:6px}
@@ -129,12 +147,16 @@ section{display:none}section.on{display:block}
     <p class="hint" id="baseEstim">Estimativa usa sua média real; sem dias lançados, usa R$ 1,30/km e R$ 32/h.</p>
   </div>
   <div class="card">
+    <h2>Onde rende mais (lucro por hora)</h2>
+    <div class="rk" id="rank"></div>
+  </div>
+  <div class="card">
     <h2>Seus números</h2>
     <div class="grid">
       <div class="kpi"><span>Faturamento</span><b id="fat">—</b></div>
       <div class="kpi"><span>Combustível (est.)</span><b id="comb">—</b></div>
       <div class="kpi"><span>Km rodados</span><b id="km">—</b></div>
-      <div class="kpi"><span>Horas online</span><b id="horas">—</b></div>
+      <div class="kpi"><span>Horas trabalhadas</span><b id="horas">—</b></div>
       <div class="kpi"><span>R$ por km</span><b id="rkm">—</b></div>
       <div class="kpi"><span>Lucro por hora</span><b id="rh">—</b></div>
       <div class="kpi"><span>Gastos do Uber</span><b id="gMes">—</b></div>
@@ -145,6 +167,11 @@ section{display:none}section.on{display:block}
 
 <!-- LANÇAR -->
 <section id="lancar">
+  <div class="card" id="cronCard">
+    <h2>Cronômetro do turno</h2>
+    <div class="cron"><div class="big" id="cronTempo">0:00:00</div><p class="sub" id="cronStatus">Toque em Iniciar quando ligar o app do Uber.</p></div>
+    <div id="cronBtns"></div>
+  </div>
   <div class="card">
     <h2>Lançar dia</h2>
     <label>Data</label><input type="date" id="fData">
@@ -152,10 +179,14 @@ section{display:none}section.on{display:block}
       <div><label>Km inicial (painel)</label><input type="number" inputmode="numeric" id="fKmI" placeholder="85200"></div>
       <div><label>Km final (painel)</label><input type="number" inputmode="numeric" id="fKmF" placeholder="85290"></div>
     </div>
+    <div class="row3">
+      <div><label>Início</label><input type="time" id="fHIni"></div>
+      <div><label>Fim</label><input type="time" id="fHFim"></div>
+      <div><label>Pausa</label><input type="number" inputmode="numeric" id="fInt" placeholder="min"></div>
+    </div>
     <label>Valor que fiz no dia (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fUber" placeholder="0,00">
     <details id="fMais" class="mais">
       <summary>Mais detalhes (opcional)</summary>
-      <label>Horas online</label><input type="number" inputmode="decimal" step="0.1" id="fHoras" placeholder="4">
       <div class="row2">
         <div><label>Ganho na 99 (R$)</label><input type="number" inputmode="decimal" step="0.01" id="f99" placeholder="0,00"></div>
         <div><label>Gorjeta/bônus (R$)</label><input type="number" inputmode="decimal" step="0.01" id="fBonus" placeholder="0,00"></div>
@@ -392,7 +423,7 @@ function render(){
   const vistos=new Set();
   const fmtD=x=>new Date(x+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
   const linhas=ord.map(d=>{const c=calcDia(d);const g=gDia(d);vistos.add(d.data);const l=c.lucro-g;
-    return {data:d.data,html:`<div class="day" data-x="${d.id}"><div><b>${fmtD(d.data)}</b><small>${num(c.km)} km${d.horas?` · ${String(d.horas).replace('.',',')} h`:''} · fat. ${brl(c.fat)}${g?` · gastos ${brl(g)}`:''}</small></div><div class="val ${l<0?'neg':'pos'}">${brl(l)}</div><button class="del" data-id="${d.id}" aria-label="Apagar">✕</button></div><div class="det" id="det-${d.id}" hidden></div>`}});
+    return {data:d.data,html:`<div class="day" data-x="${d.id}"><div><b>${fmtD(d.data)}</b><small>${d.hIni?d.hIni+'–'+d.hFim+' · ':''}${num(c.km)} km${d.horas?` · ${fmtH(d.horas)}`:''} · fat. ${brl(c.fat)}${g?` · gastos ${brl(g)}`:''}</small></div><div class="val ${l<0?'neg':'pos'}">${brl(l)}</div><button class="del" data-id="${d.id}" aria-label="Apagar">✕</button></div><div class="det" id="det-${d.id}" hidden></div>`}});
   [...new Set((st.gastos||[]).filter(g=>g.data.startsWith(mesSel)&&!g.pessoal&&!vistos.has(g.data)).map(g=>g.data))].forEach(dt=>{
     linhas.push({data:dt,html:`<div class="day"><div><b>${fmtD(dt)}</b><small>só gastos (sem corridas lançadas)</small></div><div class="val neg">${brl(-gastosData(dt))}</div><span style="width:34px"></span></div>`})});
   linhas.sort((a,b)=>b.data.localeCompare(a.data));
@@ -401,7 +432,7 @@ function render(){
   document.querySelectorAll('#segComb button').forEach(b=>b.classList.toggle('on',b.dataset.c===st.cfg.comb));
   const c=st.cfg[st.cfg.comb];$('cPreco').value=c.preco;$('cCons').value=c.cons;
   $('cMeta').value=st.cfg.meta;$('cManut').value=st.cfg.manut;$('cTanque').value=st.cfg.tanque;
-  renderMedia();renderGastos();
+  renderMedia();renderGastos();renderRank();renderCron();
   const r=st.cfg.etanol.preco/st.cfg.gasolina.preco;
   $('dicaComb').textContent=`Custo atual: ${brl(custoKm())}/km. Etanol custa ${(r*100).toFixed(0)}% da gasolina — ${r<=0.7?'etanol compensa.':'gasolina compensa.'}`;
   previa();
@@ -416,6 +447,7 @@ function detalheDia(d,g){
     <div class="resTop"><span>Lucro do dia</span><b class="${lucro<0?'neg':'pos'}">${brl(lucro)}</b></div>
     ${L('Km rodados',num(c.km)+' km')}
     ${L('Valor que fiz',brl(c.fat))}
+    ${d.horas?L('Tempo trabalhado',fmtH(d.horas)+(d.hIni?` <small style="color:var(--muted);font-weight:400">(${d.hIni}–${d.hFim}${d.intervalo?`, pausa ${d.intervalo} min`:''})</small>`:'')):''}
     <div class="sep">Custos</div>
     ${L(`Combustível (≈ ${lit.toFixed(1).replace('.',',')} L)`,'− '+brl(c.comb),'c')}
     ${L('Reserva de manutenção','− '+brl(c.man),'c')}
@@ -430,6 +462,56 @@ function detalheDia(d,g){
     ${d.abast?`<p class="hint">Você abasteceu ${brl(d.abast)} neste dia. Esse valor não entra como custo: o custo acima é o combustível que o carro gastou rodando esses km.</p>`:''}
   </div>`;
 }
+// ---------- ranking por horário e dia da semana ----------
+function renderRank(){
+  const base=st.dias.filter(d=>d.horas>0);
+  if(!base.length){$('rank').innerHTML='<p class="empty">Use o cronômetro (ou preencha início e fim) para ver quais horários e dias dão mais lucro por hora.</p>';return}
+  const turno=d=>{if(!d.hIni)return null;const h=+d.hIni.slice(0,2);return h<6?'🌙 Madrugada':h<12?'🌅 Manhã':h<18?'☀️ Tarde':'🌆 Noite'};
+  const SEM=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const grupo=(fn,ordem)=>{const g={};base.forEach(d=>{const k=fn(d);if(!k)return;const c=calcDia(d);g[k]=g[k]||{h:0,l:0,n:0};g[k].h+=d.horas;g[k].l+=c.lucro-gDia(d);g[k].n++});
+    const it=ordem.filter(k=>g[k]).map(k=>({k,...g[k],lh:g[k].l/g[k].h}));
+    if(!it.length)return '<p class="hint">Sem horário de início lançado ainda.</p>';
+    const max=Math.max(...it.map(x=>x.lh),0.01),best=it.reduce((a,b)=>b.lh>a.lh?b:a);
+    return it.map(x=>`<div class="it ${x===best&&it.length>1?'top':''}"><div>${x.k}<small>${fmtH(x.h)} · ${x.n} turno(s)</small></div><div class="tr"><div style="width:${Math.max(3,x.lh/max*100)}%"></div></div><b class="${x.lh<0?'neg':''}">${brl(x.lh)}/h</b></div>`).join('')};
+  $('rank').innerHTML='<h3>Por horário de início</h3>'+grupo(turno,['🌙 Madrugada','🌅 Manhã','☀️ Tarde','🌆 Noite'])+
+    '<h3>Por dia da semana</h3>'+grupo(d=>SEM[new Date(d.data+'T12:00').getDay()],['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'])+
+    '<p class="hint">Considera todos os dias lançados com horário. Verde = o que mais rende.</p>';
+}
+// ---------- cronômetro do turno ----------
+const TURNO='metaUber.turno';
+let turno=null;try{turno=JSON.parse(localStorage.getItem(TURNO))}catch(e){}
+const salvaTurno=()=>{try{turno?localStorage.setItem(TURNO,JSON.stringify(turno)):localStorage.removeItem(TURNO)}catch(e){}};
+const hhmm=ts=>{const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+const dataLocal=ts=>{const d=new Date(ts);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+function pausaMs(t,agora){return t.pausas.reduce((s,p)=>s+((p[1]||agora)-p[0]),0)}
+function renderCron(){
+  const agora=Date.now();
+  if(!turno){$('cronTempo').textContent='0:00:00';$('cronTempo').className='big';$('cronStatus').textContent='Toque em Iniciar quando ligar o app do Uber.';
+    $('cronBtns').innerHTML='<button class="primary" data-cr="ini">▶ Iniciar turno</button>';return}
+  const ms=Math.max(0,agora-turno.ini-pausaMs(turno,agora));const s=Math.floor(ms/1000);
+  $('cronTempo').textContent=Math.floor(s/3600)+':'+String(Math.floor(s/60)%60).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  const pausado=turno.pausas.length&&!turno.pausas[turno.pausas.length-1][1];
+  $('cronTempo').className='big'+(pausado?' pausa':'');
+  const pm=Math.round(pausaMs(turno,agora)/60000);
+  $('cronStatus').textContent=pausado?`⏸ Em pausa desde ${hhmm(turno.pausas[turno.pausas.length-1][0])}`:`🟢 Rodando desde ${hhmm(turno.ini)}${pm?` · pausas: ${pm} min`:''}`;
+  $('cronBtns').innerHTML=`<div class="btn2">${pausado?'<button class="primary" data-cr="ret">▶ Retomar</button>':'<button class="amber" data-cr="pau">⏸ Pausar</button>'}<button class="dark" data-cr="fim">⏹ Encerrar</button></div><button class="link" data-cr="canc">Cancelar turno</button>`;
+}
+$('cronBtns').onclick=e=>{const b=e.target.closest('[data-cr]');if(!b)return;const a=b.dataset.cr,agora=Date.now();
+  if(a==='ini'){turno={ini:agora,pausas:[]};toast('Turno iniciado — bom trabalho!')}
+  else if(a==='pau'){turno.pausas.push([agora,null]);toast('Pausado')}
+  else if(a==='ret'){turno.pausas[turno.pausas.length-1][1]=agora;toast('Retomado')}
+  else if(a==='canc'){if(!confirm('Cancelar este turno? O tempo marcado será descartado.'))return;turno=null}
+  else if(a==='fim'){
+    const p=turno.pausas[turno.pausas.length-1];if(p&&!p[1])p[1]=agora;
+    $('fData').value=dataLocal(turno.ini);$('gData').value=$('fData').value;
+    $('fHIni').value=hhmm(turno.ini);$('fHFim').value=hhmm(agora);
+    const pm=Math.round(pausaMs(turno,agora)/60000);$('fInt').value=pm||'';
+    turno=null;salvaTurno();render();
+    toast('Turno encerrado. Agora digite o km final e o valor.');
+    setTimeout(()=>{$('fKmF').scrollIntoView({behavior:'smooth',block:'center'});$('fKmF').focus()},300);
+    return}
+  salvaTurno();renderCron()};
+setInterval(()=>{if(turno)renderCron()},1000);
 let ultimoSalvo=null;
 function previa(){
   const d=lerForm();
@@ -438,10 +520,12 @@ function previa(){
   if(x){$('resTit').textContent='Dia salvo — '+new Date(x.data+'T12:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});$('resDia').innerHTML=detalheDia(x,gDia(x));$('resCard').style.display='block';return}
   $('resCard').style.display='none';
 }
+function horasDe(hi,hf,iv){if(!hi||!hf)return 0;const m=t=>{const[a,b]=t.split(':').map(Number);return a*60+b};let d=m(hf)-m(hi);if(d<0)d+=1440;d-=iv||0;return Math.max(0,d)/60}
+const fmtH=h=>{const t=Math.round(h*60);return Math.floor(t/60)+'h'+String(t%60).padStart(2,'0')};
 function lerForm(){
   const kmI=n($('fKmI').value),kmF=n($('fKmF').value);
   if(!$('fKmI').value||!$('fKmF').value)return null;
-  return{data:$('fData').value||hoje(),kmI,kmF,horas:n($('fHoras').value),uber:n($('fUber').value),d99:n($('f99').value),bonus:n($('fBonus').value),abast:n($('fAbast').value)};
+  return{data:$('fData').value||hoje(),kmI,kmF,hIni:$('fHIni').value,hFim:$('fHFim').value,intervalo:n($('fInt').value),horas:horasDe($('fHIni').value,$('fHFim').value,n($('fInt').value)),uber:n($('fUber').value),d99:n($('f99').value),bonus:n($('fBonus').value),abast:n($('fAbast').value)};
 }
 // ---------- nuvem ----------
 const TK='metaUber.token';
@@ -562,13 +646,13 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
   window.scrollTo(0,0);
 });
-['fKmI','fKmF','fHoras','fUber','f99','fBonus','fAbast'].forEach(i=>$(i).addEventListener('input',previa));
+['fKmI','fKmF','fHIni','fHFim','fInt','fUber','f99','fBonus','fAbast'].forEach(i=>$(i).addEventListener('input',previa));
 $('salvar').onclick=()=>{
   const d=lerForm();
   if(!d){toast('Preencha o km inicial e final');return}
   if(d.kmF<d.kmI){toast('Km final menor que o inicial');return}
   d.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);st.dias.push(d);ultimoSalvo=d.id;save();
-  ['fHoras','fUber','f99','fBonus','fAbast'].forEach(i=>$(i).value='');
+  ['fHIni','fHFim','fInt','fUber','f99','fBonus','fAbast'].forEach(i=>$(i).value='');
   $('fKmI').value=d.kmF;$('fKmF').value='';
   mesSel=d.data.slice(0,7);render();toast('Dia salvo ✔');
   nuvem({m:'POST',u:'/api/dias',b:d});
@@ -614,10 +698,10 @@ $('salvarCfg').onclick=()=>{
 };
 function baixar(nome,conteudo,tipo){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([conteudo],{type:tipo}));a.download=nome;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 $('exportCsv').onclick=()=>{
-  const linhas=[['Data','Km inicial','Km final','Km rodados','Horas','Uber','99','Bonus','Faturamento','Abastecido','Combustivel est.','Manutencao','Gastos','Lucro livre']];
+  const linhas=[['Data','Km inicial','Km final','Km rodados','Horas','Inicio','Fim','Pausa (min)','Uber','99','Bonus','Faturamento','Abastecido','Combustivel est.','Manutencao','Gastos','Lucro livre']];
   const usados=new Set();
-  [...st.dias].sort((a,b)=>a.data.localeCompare(b.data)).forEach(d=>{const c=calcDia(d);const g=usados.has(d.data)?0:gastosData(d.data);usados.add(d.data);linhas.push([d.data,d.kmI,d.kmF,c.km,d.horas,d.uber,d.d99,d.bonus,c.fat.toFixed(2),d.abast,c.comb.toFixed(2),c.man.toFixed(2),g.toFixed(2),(c.lucro-g).toFixed(2)])});
-  [...new Set((st.gastos||[]).filter(g=>!g.pessoal).map(g=>g.data))].filter(x=>!usados.has(x)).sort().forEach(dt=>{const g=gastosData(dt);linhas.push([dt,'','','','','','','','','','','',g.toFixed(2),(-g).toFixed(2)])});
+  [...st.dias].sort((a,b)=>a.data.localeCompare(b.data)).forEach(d=>{const c=calcDia(d);const g=usados.has(d.data)?0:gastosData(d.data);usados.add(d.data);linhas.push([d.data,d.kmI,d.kmF,c.km,d.horas,d.hIni||'',d.hFim||'',d.intervalo||0,d.uber,d.d99,d.bonus,c.fat.toFixed(2),d.abast,c.comb.toFixed(2),c.man.toFixed(2),g.toFixed(2),(c.lucro-g).toFixed(2)])});
+  [...new Set((st.gastos||[]).filter(g=>!g.pessoal).map(g=>g.data))].filter(x=>!usados.has(x)).sort().forEach(dt=>{const g=gastosData(dt);linhas.push([dt,'','','','','','','','','','','','','','',g.toFixed(2),(-g).toFixed(2)])});
   linhas.push([]);linhas.push(['Gastos detalhados']);linhas.push(['Data','Tipo','Obs','Valor','Conta no Uber']);
   [...(st.gastos||[])].sort((a,b)=>a.data.localeCompare(b.data)).forEach(g=>linhas.push([g.data,(CAT[g.cat]||g.cat).replace(/^\S+\s/,''),(g.desc||'').replace(/;/g,','),g.valor.toFixed(2),g.pessoal?'Nao (pessoal)':'Sim']));
   baixar('meta-uber.csv','﻿'+linhas.map(l=>l.join(';')).join('\n'),'text/csv');
